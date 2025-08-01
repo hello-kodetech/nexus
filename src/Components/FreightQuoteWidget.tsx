@@ -1,8 +1,9 @@
 "use client";
-import React, {useState} from "react";
-import {ChevronDown} from "lucide-react";
+import React, { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import ReCAPTCHA from "react-google-recaptcha";
 
 interface FreightQuoteWidgetProps {
     isOpen: boolean;
@@ -10,9 +11,9 @@ interface FreightQuoteWidgetProps {
 }
 
 const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
-                                                                   isOpen,
-                                                                   onClose,
-                                                               }) => {
+    isOpen,
+    onClose,
+}) => {
     const [formData, setFormData] = useState({
         firstName: "",
         lastName: "",
@@ -27,11 +28,11 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
     });
 
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
-    // const [selectedService, setSelectedService] = useState<string | null>(null);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [isLoading, setIsLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
+    const [recaptchaValue, setRecaptchaValue] = useState<string | null>(null);
 
     const services = [
         {
@@ -69,7 +70,7 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
             HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
         >
     ) => {
-        const {name, value} = e.target;
+        const { name, value } = e.target;
         setFormData((prev) => ({
             ...prev,
             [name]: value,
@@ -115,9 +116,9 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
 
         if (!formData.phone.trim()) {
             newErrors.phone = "Phone number is required.";
-        } else if (!/^\+\d+$/.test(formData.phone.trim())) {
+        } else if (!/^[\d\s+\-()]+$/.test(formData.phone.trim())) {
             newErrors.phone =
-                "Please enter a valid phone number (e.g., +61712345678).";
+                "Please enter a valid phone number (e.g., 0435231833 or +61712345678).";
         }
 
         if (formData.originPort.trim().length > 100) {
@@ -136,29 +137,14 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
             newErrors.privacy = "You must accept the privacy policy";
         }
 
-        // Optional: Check that originPort and destinationPort are not empty if needed
-        // if (!formData.originPort.trim()) {
-        //   newErrors.originPort = "Origin port or country is required";
-        // }
-
-        // if (!formData.destinationPort.trim()) {
-        //   newErrors.destinationPort = "Destination port or country is required";
-        // }
+        if (!recaptchaValue) {
+            newErrors.recaptcha = "Please complete the reCAPTCHA verification";
+        }
 
         setErrors(newErrors);
 
         return Object.keys(newErrors).length === 0;
     };
-
-    // const handleSubmit = (e: React.FormEvent) => {
-    //   e.preventDefault();
-    //
-    //   if (validate()) {
-    //     // All validations passed
-    //     console.log("Form submitted:", formData);
-    //     // You can reset form or call API here
-    //   }
-    // };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -171,17 +157,22 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
         try {
             const response = await fetch("/api/send-email", {
                 method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({formType: "freightQuote", ...formData}),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    formType: "freightQuote",
+                    ...formData,
+                    recaptchaValue
+                }),
             });
 
             if (response.ok) {
                 setSuccessMessage("Your freight quote request has been sent successfully!");
                 setFormData({
                     firstName: "", lastName: "", companyName: "", email: "", phone: "",
-                    shipmentsPerMonth: "", mode: "", originPort: "", destinationPort: "", enquiry: "",
+                    shipmentsPerMonth: "10 to 25", mode: "Air Freight Services", originPort: "", destinationPort: "", enquiry: "",
                 });
                 setPrivacyAccepted(false);
+                setRecaptchaValue(null);
                 setTimeout(() => {
                     if (confirm("Your request was submitted. Would you like to close the form?")) {
                         onClose();
@@ -239,7 +230,7 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
                         {/* Header */}
                         <div className="mb-8">
                             <h2 className="font-poppins font-bold text-[32px] sm:text-[42px] lg:text-[51px] text-white leading-[69px] mb-4">
-                                Request a<br/>
+                                Request a<br />
                                 freight rate today
                             </h2>
 
@@ -376,7 +367,7 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
                                         <p className="text-red-500 text-xs mt-1">{errors.email}</p>
                                     )}
                                     <p className="text-xs text-gray-400 mb-2 mt-2">
-                                        Kindly use your company email address to <br/> your enquiry
+                                        Kindly use your company email address to <br /> your enquiry
                                         isn&#39;t marked as spam.
                                     </p>
                                 </div>
@@ -424,10 +415,10 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
                                         onChange={handleInputChange}
                                         className="w-full font-poppins font-normal text-[14px] sm:text-[16px] lg:text-[18px] leading-[25px] tracking-[0.013em] bg-transparent border-b-[1px] border-[#A5A5A5] text-[#647FBB] py-2 pr-8 focus:outline-none focus:border-white transition-colors appearance-none"
                                     >
-                                        <option value="10-25" className="bg-[#2A2A2A] text-white">
+                                        <option value="10 to 25" className="bg-[#2A2A2A] text-white">
                                             10 to 25
                                         </option>
-                                        <option value="25-50" className="bg-[#2A2A2A] text-white">
+                                        <option value="25 to 50" className="bg-[#2A2A2A] text-white">
                                             25 to 50
                                         </option>
                                         <option value="More than 50" className="bg-[#2A2A2A] text-white">
@@ -435,7 +426,6 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
                                         </option>
                                     </select>
 
-                                    {/* Chevron icon positioned absolutely */}
                                     <ChevronDown
                                         className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none"
                                         stroke="#A5A5A5"
@@ -491,7 +481,6 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
                                         </option>
                                     </select>
 
-                                    {/* White chevron icon */}
                                     <ChevronDown
                                         className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none"
                                         stroke="#A5A5A5"
@@ -529,7 +518,7 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
                                 </div>
                                 <div>
                                     <label
-                                        htmlFor="originPort"
+                                        htmlFor="destinationPort"
                                         className="block font-poppins font-normal text-[14px] sm:text-[16px] lg:text-[18px] leading-[25px] tracking-[0.013em] text-white mb-2"
                                     >
                                         Destination port or Country
@@ -600,23 +589,34 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
                                 </label>
                             </div>
 
+                            {/* reCAPTCHA */}
+                            <div className="mb-4">
+                                <ReCAPTCHA
+                                    sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "YOUR_SITE_KEY"}
+                                    onChange={(value: string | null) => setRecaptchaValue(value)}
+                                />
+                                {errors.recaptcha && (
+                                    <p className="text-red-600 text-sm mt-1">
+                                        {errors.recaptcha}
+                                    </p>
+                                )}
+                            </div>
+
                             {/* Submit Button */}
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                onClick={handleSubmit}
                                 className={`ml-auto block px-8 py-3 font-poppins font-medium text-base md:text-lg lg:text-xl leading-[100%] tracking-[0em] text-white rounded-md hover:bg-blue-950 hover:scale-105 transition-all duration-300 ${
                                     isLoading ? "opacity-50 cursor-not-allowed" : ""
                                 }`}
-                                style={{backgroundColor: "#162F65"}}
+                                style={{ backgroundColor: "#162F65" }}
                             >
                                 {isLoading ? "Submitting..." : "Submit"}
                             </button>
                         </form>
 
                         {/* Footer Icons */}
-                        <div
-                            className="grid grid-cols-2 gap-6 mt-12 pt-8 xl:flex xl:flex-row xl:flex-wrap xl:justify-start">
+                        <div className="grid grid-cols-2 gap-6 mt-12 pt-8 xl:flex xl:flex-row xl:flex-wrap xl:justify-start">
                             {services.map((service) => (
                                 <Link
                                     key={service.id}
@@ -632,8 +632,7 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
                                             className="object-contain filter invert"
                                         />
                                     </div>
-                                    <div
-                                        className="font-poppins font-medium text-[12px] sm:text-[13px] lg:text-[14px] leading-[19px] tracking-[0.02em] text-center text-gray-300">
+                                    <div className="font-poppins font-medium text-[12px] sm:text-[13px] lg:text-[14px] leading-[19px] tracking-[0.02em] text-center text-gray-300">
                                         <div>{service.title}</div>
                                         <div>{service.subtitle}</div>
                                     </div>
@@ -652,12 +651,11 @@ const FreightQuoteWidget: React.FC<FreightQuoteWidgetProps> = ({
                                     className="object-contain"
                                 />
                             </div>
-                            <div
-                                className="font-poppins font-medium text-gray-300 leading-[17px] text-[11px] sm:text-[12px] lg:text-[13px] leading-tight">
+                            <div className="font-poppins font-medium text-gray-300 leading-[17px] text-[11px] sm:text-[12px] lg:text-[13px] leading-tight">
                                 A proudly Australian logistics pit crew with a global reach,
-                                <br/>
+                                <br />
                                 delivering agile, reliable freight solutions that keep your
-                                <br/>
+                                <br />
                                 supply chain moving.
                             </div>
                         </div>
